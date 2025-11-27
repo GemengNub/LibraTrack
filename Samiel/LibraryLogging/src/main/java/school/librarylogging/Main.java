@@ -13,6 +13,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import java.io.IOException;
 import java.util.InputMismatchException;
 import java.util.Scanner;
+
 public class Main {
 
     protected static final User user = new User();
@@ -21,9 +22,9 @@ public class Main {
 
     static void loginHandler(){
         /*
-         * Method for handling login logic
+         * Method for handling login logic (Console-based - legacy)
          * */
-        String forbiddenChars = "^[^<>/\\^();:'\"\\[\\]\\{\\}\\\\|]+$";
+        String forbiddenChars = "^[^<>/\\\\^();:'\"\\[\\]\\{\\}\\|]+$";
         String userInput = "", passwordInput = "";
 
         try{
@@ -101,9 +102,8 @@ public class Main {
         *
         * Start of program flow
         *
-        * init login form here for frontend <3
+        * Launch Java Swing Login Form as the entry point
         * */
-        loginHandler();
-        System.out.println(Login.userDetails());
+        LoginForm.showLoginForm();
     }
 }

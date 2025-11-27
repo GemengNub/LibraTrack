@@ -109,14 +109,96 @@ public class DatabaseHandler {
 		}
 	}
 
+	/**
+	 * Finds and displays books in a table-like format.
+	 * Displays book_id, book_name, and borrowed (1 or 0) columns.
+	 * 
+	 * @param bookName Optional filter by book name (null or empty for all books)
+	 */
 	static void findBook(String bookName) {
-		String query = "SELECT book_name, borrowed FROM book_record"; // Finds book in record.
+		String query;
+		if (bookName == null || bookName.trim().isEmpty()) {
+			query = "SELECT book_id, book_name, borrowed FROM book_record";
+		} else {
+			query = "SELECT book_id, book_name, borrowed FROM book_record WHERE book_name LIKE ?";
+		}
+		
 		try {
 			PreparedStatement statement = conn.prepareStatement(query);
-
-			statement.getMetaData();
+			
+			if (bookName != null && !bookName.trim().isEmpty()) {
+				statement.setString(1, "%" + bookName.trim() + "%");
+			}
+			
+			try (ResultSet result = statement.executeQuery()) {
+				// Print table header
+				System.out.println("+" + "-".repeat(10) + "+" + "-".repeat(32) + "+" + "-".repeat(10) + "+");
+				System.out.printf("| %-8s | %-30s | %-8s |%n", "book_id", "book_name", "borrowed");
+				System.out.println("+" + "-".repeat(10) + "+" + "-".repeat(32) + "+" + "-".repeat(10) + "+");
+				
+				boolean hasResults = false;
+				while (result.next()) {
+					hasResults = true;
+					int bookId = result.getInt("book_id");
+					String name = result.getString("book_name");
+					int borrowed = result.getInt("borrowed");
+					
+					// Truncate book name if too long
+					if (name != null && name.length() > 30) {
+						name = name.substring(0, 27) + "...";
+					}
+					
+					System.out.printf("| %-8d | %-30s | %-8d |%n", bookId, name, borrowed);
+				}
+				
+				System.out.println("+" + "-".repeat(10) + "+" + "-".repeat(32) + "+" + "-".repeat(10) + "+");
+				
+				if (!hasResults) {
+					System.out.println("No books found.");
+				}
+			}
 		} catch (SQLException ex) {
 			System.out.println("Error: " + ex.getMessage());
 		}
+	}
+	
+	/**
+	 * Finds and returns book data for GUI display.
+	 * Returns a 2D array with columns: book_id, book_name, borrowed
+	 * 
+	 * @param bookName Optional filter by book name (null or empty for all books)
+	 * @return Object[][] containing book data for table display
+	 */
+	static Object[][] findBookAsTableData(String bookName) {
+		String query;
+		if (bookName == null || bookName.trim().isEmpty()) {
+			query = "SELECT book_id, book_name, borrowed FROM book_record";
+		} else {
+			query = "SELECT book_id, book_name, borrowed FROM book_record WHERE book_name LIKE ?";
+		}
+		
+		java.util.List<Object[]> dataList = new java.util.ArrayList<>();
+		
+		try {
+			PreparedStatement statement = conn.prepareStatement(query);
+			
+			if (bookName != null && !bookName.trim().isEmpty()) {
+				statement.setString(1, "%" + bookName.trim() + "%");
+			}
+			
+			try (ResultSet result = statement.executeQuery()) {
+				while (result.next()) {
+					Object[] row = new Object[3];
+					row[0] = result.getInt("book_id");
+					row[1] = result.getString("book_name");
+					row[2] = result.getInt("borrowed");
+					dataList.add(row);
+				}
+			}
+		} catch (SQLException ex) {
+			System.out.println("Error: " + ex.getMessage());
+		}
+		
+		return dataList.toArray(new Object[0][]);
 	}
 }
