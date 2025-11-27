@@ -1,6 +1,8 @@
 package school.librarylogging;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class DatabaseHandler {
@@ -177,7 +179,7 @@ public class DatabaseHandler {
 			query = "SELECT book_id, book_name, borrowed FROM book_record WHERE book_name LIKE ?";
 		}
 		
-		java.util.List<Object[]> dataList = new java.util.ArrayList<>();
+		List<Object[]> dataList = new ArrayList<>();
 		
 		try {
 			PreparedStatement statement = conn.prepareStatement(query);

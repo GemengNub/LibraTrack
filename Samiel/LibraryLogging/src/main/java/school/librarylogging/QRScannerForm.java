@@ -14,7 +14,6 @@ import com.google.zxing.common.HybridBinarizer;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -35,9 +34,10 @@ public class QRScannerForm extends JFrame implements Runnable {
     private JButton cancelButton;
     private JPanel qrInfoPanel;
     
-    private final Executor executor = Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean scanning = new AtomicBoolean(true);
     private String detectedQRContent = null;
+    private volatile boolean scanningTaskRunning = false;
     
     // Status constants
     private static final String STATUS_NO_QR = "No QR";
@@ -155,45 +155,50 @@ public class QRScannerForm extends JFrame implements Runnable {
     
     @Override
     public void run() {
-        // Continuous QR scanning loop
-        while (scanning.get()) {
-            try {
-                Thread.sleep(100); // Scan every 100ms
-                
-                if (webcam == null || !webcam.isOpen()) {
-                    continue;
-                }
-                
-                BufferedImage image = webcam.getImage();
-                if (image == null) {
-                    updateStatus(STATUS_NO_QR);
-                    continue;
-                }
-                
-                // Try to decode QR code
-                LuminanceSource source = new BufferedImageLuminanceSource(image);
-                BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
-                
+        scanningTaskRunning = true;
+        try {
+            // Continuous QR scanning loop
+            while (scanning.get()) {
                 try {
-                    MultiFormatReader reader = new MultiFormatReader();
-                    Result result = reader.decode(bitmap);
+                    Thread.sleep(100); // Scan every 100ms
                     
-                    if (result != null && result.getText() != null && !result.getText().isEmpty()) {
-                        detectedQRContent = result.getText();
-                        scanning.set(false);
-                        handleQRDetected(detectedQRContent);
+                    if (webcam == null || !webcam.isOpen()) {
+                        continue;
                     }
-                } catch (NotFoundException e) {
-                    // No QR code found in this frame
-                    updateStatus(STATUS_NO_QR);
-                } catch (Exception e) {
-                    updateStatus(STATUS_QR_SCAN_FAILED);
-                }
-                
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
+                    
+                    BufferedImage image = webcam.getImage();
+                    if (image == null) {
+                        updateStatus(STATUS_NO_QR);
+                        continue;
+                    }
+                    
+                    // Try to decode QR code
+                    LuminanceSource source = new BufferedImageLuminanceSource(image);
+                    BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+                    
+                    try {
+                        MultiFormatReader reader = new MultiFormatReader();
+                        Result result = reader.decode(bitmap);
+                        
+                        if (result != null && result.getText() != null && !result.getText().isEmpty()) {
+                            detectedQRContent = result.getText();
+                            scanning.set(false);
+                            handleQRDetected(detectedQRContent);
+                        }
+                    } catch (NotFoundException e) {
+                        // No QR code found in this frame
+                        updateStatus(STATUS_NO_QR);
+                    } catch (Exception e) {
+                        updateStatus(STATUS_QR_SCAN_FAILED);
+                    }
+                    
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
             }
+        }
+        } finally {
+            scanningTaskRunning = false;
         }
     }
     
@@ -322,7 +327,10 @@ public class QRScannerForm extends JFrame implements Runnable {
         borrowButton.setEnabled(false);
         scanning.set(true);
         updateStatus(STATUS_SCANNING);
-        executor.execute(this);
+        // Only start a new scanning task if the previous one is not running
+        if (!scanningTaskRunning) {
+            executor.execute(this);
+        }
     }
     
     private void cancelScanning() {
@@ -336,6 +344,9 @@ public class QRScannerForm extends JFrame implements Runnable {
         if (webcam != null && webcam.isOpen()) {
             webcam.close();
         }
+        
+        // Shutdown executor service
+        executor.shutdown();
         
         dispose();
         
