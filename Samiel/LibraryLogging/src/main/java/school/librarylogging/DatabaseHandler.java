@@ -19,8 +19,6 @@ public class DatabaseHandler {
 			conn = DriverManager.getConnection(url, username, password);
 			System.out.println("Connected to database!");
 
-			// viewBookDataOnDatabase(); // TESTING PURPOSES
-			addBookDataToDatabase("Science", 1);
 		} catch (SQLException ex) {
 			System.out.println(ex.getMessage());
 		}
