@@ -17,7 +17,7 @@ public class MainForm extends JFrame {
     
     private User currentUser;
     private JPanel mainContentPanel;
-    private JLabel statusLabel;
+    private JLabel statusMessageLabel;
     private JTable bookTable;
     private DefaultTableModel tableModel;
     
@@ -58,9 +58,9 @@ public class MainForm extends JFrame {
         
         // Status bar at bottom
         JPanel statusPanel = new JPanel(new BorderLayout());
-        statusLabel = new JLabel(" ");
-        statusLabel.setForeground(Color.BLUE);
-        statusPanel.add(statusLabel, BorderLayout.WEST);
+        statusMessageLabel = new JLabel(" ");
+        statusMessageLabel.setForeground(Color.BLUE);
+        statusPanel.add(statusMessageLabel, BorderLayout.WEST);
         
         JButton logoutButton = new JButton("Logout");
         logoutButton.addActionListener(e -> logout());
@@ -129,7 +129,7 @@ public class MainForm extends JFrame {
     }
     
     private void openQRScanner() {
-        statusLabel.setText("Opening QR Scanner...");
+        statusMessageLabel.setText("Opening QR Scanner...");
         SwingUtilities.invokeLater(() -> {
             QRScannerForm scannerForm = new QRScannerForm(this, currentUser);
             scannerForm.setVisible(true);
@@ -150,11 +150,17 @@ public class MainForm extends JFrame {
         if (result == JOptionPane.OK_OPTION) {
             String bookName = bookNameField.getText().trim();
             if (!bookName.isEmpty()) {
-                statusLabel.setText("Adding book: " + bookName);
-                // In a real implementation, this would connect to the database
-                JOptionPane.showMessageDialog(this, 
-                        "Book '" + bookName + "' added successfully!", 
-                        "Success", JOptionPane.INFORMATION_MESSAGE);
+                statusMessageLabel.setText("Adding book: " + bookName);
+                try {
+                    DatabaseHandler.addBookDataToDatabase(bookName, 0);
+                    JOptionPane.showMessageDialog(this, 
+                            "Book '" + bookName + "' added successfully!", 
+                            "Success", JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, 
+                            "Failed to add book: " + ex.getMessage(), 
+                            "Database Error", JOptionPane.ERROR_MESSAGE);
+                }
             } else {
                 JOptionPane.showMessageDialog(this, 
                         "Book name cannot be empty", 
@@ -180,10 +186,21 @@ public class MainForm extends JFrame {
                         "Are you sure you want to remove book with ID: " + bookId + "?",
                         "Confirm Removal", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    statusLabel.setText("Removing book with ID: " + bookId);
-                    JOptionPane.showMessageDialog(this, 
-                            "Book removed successfully!", 
-                            "Success", JOptionPane.INFORMATION_MESSAGE);
+                    statusMessageLabel.setText("Removing book with ID: " + bookId);
+                    try {
+                        DatabaseHandler.removeBookFromDatabase(Integer.parseInt(bookId));
+                        JOptionPane.showMessageDialog(this, 
+                                "Book removed successfully!", 
+                                "Success", JOptionPane.INFORMATION_MESSAGE);
+                    } catch (NumberFormatException ex) {
+                        JOptionPane.showMessageDialog(this, 
+                                "Book ID must be a valid number", 
+                                "Error", JOptionPane.ERROR_MESSAGE);
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(this, 
+                                "Failed to remove book: " + ex.getMessage(), 
+                                "Database Error", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
             } else {
                 JOptionPane.showMessageDialog(this, 
@@ -211,11 +228,25 @@ public class MainForm extends JFrame {
         
         if (result == JOptionPane.OK_OPTION) {
             String bookId = bookIdField.getText().trim();
+            String newBookName = newBookNameField.getText().trim();
+            int borrowedStatus = borrowedCombo.getSelectedIndex();
+            
             if (!bookId.isEmpty()) {
-                statusLabel.setText("Updating book with ID: " + bookId);
-                JOptionPane.showMessageDialog(this, 
-                        "Book updated successfully!", 
-                        "Success", JOptionPane.INFORMATION_MESSAGE);
+                statusMessageLabel.setText("Updating book with ID: " + bookId);
+                try {
+                    DatabaseHandler.updateBookInDatabase(Integer.parseInt(bookId), newBookName, borrowedStatus);
+                    JOptionPane.showMessageDialog(this, 
+                            "Book updated successfully!", 
+                            "Success", JOptionPane.INFORMATION_MESSAGE);
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(this, 
+                            "Book ID must be a valid number", 
+                            "Error", JOptionPane.ERROR_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, 
+                            "Failed to update book: " + ex.getMessage(), 
+                            "Database Error", JOptionPane.ERROR_MESSAGE);
+                }
             } else {
                 JOptionPane.showMessageDialog(this, 
                         "Book ID cannot be empty", 
@@ -242,16 +273,24 @@ public class MainForm extends JFrame {
         bookTable = new JTable(tableModel);
         bookTable.getTableHeader().setReorderingAllowed(false);
         
-        // Add sample data (in real implementation, this would fetch from database)
-        Object[][] sampleData = {
-            {1, "Introduction to Java", 0},
-            {2, "Database Systems", 1},
-            {3, "Data Structures", 0},
-            {4, "Science Fundamentals", 1}
-        };
-        
-        for (Object[] row : sampleData) {
-            tableModel.addRow(row);
+        // Fetch data from database
+        try {
+            Object[][] bookData = DatabaseHandler.findBookAsTableData(null);
+            for (Object[] row : bookData) {
+                tableModel.addRow(row);
+            }
+        } catch (Exception ex) {
+            // If database connection fails, show sample data as fallback
+            Object[][] sampleData = {
+                {1, "Introduction to Java", 0},
+                {2, "Database Systems", 1},
+                {3, "Data Structures", 0},
+                {4, "Science Fundamentals", 1}
+            };
+            for (Object[] row : sampleData) {
+                tableModel.addRow(row);
+            }
+            statusMessageLabel.setText("Note: Showing sample data (database unavailable)");
         }
         
         JScrollPane tableScrollPane = new JScrollPane(bookTable);
@@ -301,7 +340,7 @@ public class MainForm extends JFrame {
                 return;
             }
             
-            statusLabel.setText("Creating librarian account: " + username);
+            statusMessageLabel.setText("Creating librarian account: " + username);
             JOptionPane.showMessageDialog(this, 
                     "Librarian account '" + username + "' created successfully!", 
                     "Success", JOptionPane.INFORMATION_MESSAGE);
@@ -324,6 +363,6 @@ public class MainForm extends JFrame {
      */
     public void returnFromScanner() {
         setVisible(true);
-        statusLabel.setText(" ");
+        statusMessageLabel.setText(" ");
     }
 }

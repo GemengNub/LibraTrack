@@ -4,6 +4,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Arrays;
 import java.util.InputMismatchException;
 
 /**
@@ -120,32 +121,39 @@ public class LoginForm extends JFrame {
     
     private void performLogin() {
         String username = usernameField.getText().trim();
-        String password = new String(passwordField.getPassword());
+        char[] passwordChars = passwordField.getPassword();
         
-        // Validate input
-        if (username.isEmpty() || password.isEmpty()) {
-            statusLabel.setText("Username and password are required");
-            return;
-        }
-        
-        // Check for forbidden characters
-        if (!username.matches(FORBIDDEN_CHARS_REGEX) || !password.matches(FORBIDDEN_CHARS_REGEX)) {
-            statusLabel.setText("Cannot contain special characters");
-            return;
-        }
-        
-        // Attempt login using existing logic from Main.Login
-        if (Main.Login.isLoggedIn(username, password)) {
-            statusLabel.setText(" ");
-            // Open main form and close login
-            SwingUtilities.invokeLater(() -> {
-                MainForm mainForm = new MainForm(Main.user);
-                mainForm.setVisible(true);
-                dispose();
-            });
-        } else {
-            statusLabel.setText("Invalid username or password");
-            passwordField.setText("");
+        try {
+            // Validate input
+            if (username.isEmpty() || passwordChars.length == 0) {
+                statusLabel.setText("Username and password are required");
+                return;
+            }
+            
+            String password = new String(passwordChars);
+            
+            // Check for forbidden characters
+            if (!username.matches(FORBIDDEN_CHARS_REGEX) || !password.matches(FORBIDDEN_CHARS_REGEX)) {
+                statusLabel.setText("Cannot contain special characters");
+                return;
+            }
+            
+            // Attempt login using existing logic from Main.Login
+            if (Main.Login.isLoggedIn(username, password)) {
+                statusLabel.setText(" ");
+                // Open main form and close login
+                SwingUtilities.invokeLater(() -> {
+                    MainForm mainForm = new MainForm(Main.user);
+                    mainForm.setVisible(true);
+                    dispose();
+                });
+            } else {
+                statusLabel.setText("Invalid username or password");
+                passwordField.setText("");
+            }
+        } finally {
+            // Clear password from memory for security
+            Arrays.fill(passwordChars, '\0');
         }
     }
     

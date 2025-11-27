@@ -27,36 +27,92 @@ public class DatabaseHandler {
 
 	}
 
+	/**
+	 * Helper method to build book query based on filter.
+	 * Reduces code duplication between findBook() and findBookAsTableData().
+	 * 
+	 * @param bookName Optional filter by book name (null or empty for all books)
+	 * @return SQL query string
+	 */
+	private static String buildBookQuery(String bookName) {
+		if (bookName == null || bookName.trim().isEmpty()) {
+			return "SELECT book_id, book_name, borrowed FROM book_record";
+		} else {
+			return "SELECT book_id, book_name, borrowed FROM book_record WHERE book_name LIKE ?";
+		}
+	}
+
 	/*
 	 * USE TO ADD DATA
 	 */
 	static void addBookDataToDatabase(String bookName, int isBorrowed) {
 		String query = "INSERT INTO book_record (book_name, borrowed) VALUES (?, ?)";
-		if (isBorrowed > 1) {
-			while (true) {
-				System.out.println("Is this book borrowed?");
-				isBorrowed = in.nextInt();
-				in.nextLine();
-				if (isBorrowed <= 1) {
-					break;
-				}
-			}
+		// Ensure isBorrowed is a valid value (0 or 1)
+		if (isBorrowed < 0 || isBorrowed > 1) {
+			isBorrowed = 0;
 		}
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
+		try (PreparedStatement statement = conn.prepareStatement(query)) {
 			statement.setString(1, bookName);
 			statement.setInt(2, isBorrowed);
 			statement.executeUpdate();
 			System.out.println("Data added successfully!");
-
-			if (conn != null) {
-				conn.close();
-				System.out.println("Connection closed!");
-			} else {
-				System.out.println("Failed to close the connection!");
-			}
 		} catch (SQLException ex) {
 			System.out.println("Error!" + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Removes a book from the database by its ID.
+	 * 
+	 * @param bookId The ID of the book to remove
+	 */
+	static void removeBookFromDatabase(int bookId) {
+		String query = "DELETE FROM book_record WHERE book_id = ?";
+		try (PreparedStatement statement = conn.prepareStatement(query)) {
+			statement.setInt(1, bookId);
+			int rowsAffected = statement.executeUpdate();
+			if (rowsAffected > 0) {
+				System.out.println("Book removed successfully!");
+			} else {
+				System.out.println("No book found with ID: " + bookId);
+			}
+		} catch (SQLException ex) {
+			System.out.println("Error! " + ex.getMessage());
+		}
+	}
+
+	/**
+	 * Updates a book in the database.
+	 * 
+	 * @param bookId The ID of the book to update
+	 * @param newBookName The new name for the book (empty to keep unchanged)
+	 * @param isBorrowed The borrowed status (0 or 1)
+	 */
+	static void updateBookInDatabase(int bookId, String newBookName, int isBorrowed) {
+		String query;
+		if (newBookName != null && !newBookName.trim().isEmpty()) {
+			query = "UPDATE book_record SET book_name = ?, borrowed = ? WHERE book_id = ?";
+		} else {
+			query = "UPDATE book_record SET borrowed = ? WHERE book_id = ?";
+		}
+		
+		try (PreparedStatement statement = conn.prepareStatement(query)) {
+			if (newBookName != null && !newBookName.trim().isEmpty()) {
+				statement.setString(1, newBookName.trim());
+				statement.setInt(2, isBorrowed);
+				statement.setInt(3, bookId);
+			} else {
+				statement.setInt(1, isBorrowed);
+				statement.setInt(2, bookId);
+			}
+			int rowsAffected = statement.executeUpdate();
+			if (rowsAffected > 0) {
+				System.out.println("Book updated successfully!");
+			} else {
+				System.out.println("No book found with ID: " + bookId);
+			}
+		} catch (SQLException ex) {
+			System.out.println("Error! " + ex.getMessage());
 		}
 	}
 
@@ -65,25 +121,13 @@ public class DatabaseHandler {
 	 */
 	static void viewBookData() {
 		String query = "SELECT * FROM book_record";
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
-
-			try (ResultSet result = statement.executeQuery()) {
-				while (result.next()) {
-					System.out.println(result.getString("book_name") + " " + result.getInt("borrowed"));
-				}
-			} catch (SQLException ex) {
-				System.out.println("Error! " + ex.getMessage());
+		try (PreparedStatement statement = conn.prepareStatement(query);
+			 ResultSet result = statement.executeQuery()) {
+			while (result.next()) {
+				System.out.println(result.getString("book_name") + " " + result.getInt("borrowed"));
 			}
 		} catch (SQLException ex) {
 			System.out.println("Error! " + ex.getMessage());
-		} finally {
-			if (conn != null) {
-				try {
-					conn.close();
-				} catch (SQLException ignored) {
-				}
-			}
 		}
 	}
 
@@ -93,21 +137,13 @@ public class DatabaseHandler {
 		 * place logic to check if book is being borrowed or being returned here
 		 */
 
-		try { // Execute query
-			PreparedStatement statement = conn.prepareStatement(query);
+		try (PreparedStatement statement = conn.prepareStatement(query)) {
 			statement.setInt(1, isBorrowed);
 			statement.setString(2, bookName);
 			statement.executeUpdate();
 			System.out.println("Data updated successfully!");
 		} catch (SQLException ex) {
 			System.out.println("Error! " + ex.getMessage());
-		} finally {
-			if (conn != null) {
-				try {
-					conn.close();
-				} catch (SQLException ignored) {
-				}
-			}
 		}
 	}
 
@@ -118,16 +154,9 @@ public class DatabaseHandler {
 	 * @param bookName Optional filter by book name (null or empty for all books)
 	 */
 	static void findBook(String bookName) {
-		String query;
-		if (bookName == null || bookName.trim().isEmpty()) {
-			query = "SELECT book_id, book_name, borrowed FROM book_record";
-		} else {
-			query = "SELECT book_id, book_name, borrowed FROM book_record WHERE book_name LIKE ?";
-		}
+		String query = buildBookQuery(bookName);
 		
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
-			
+		try (PreparedStatement statement = conn.prepareStatement(query)) {
 			if (bookName != null && !bookName.trim().isEmpty()) {
 				statement.setString(1, "%" + bookName.trim() + "%");
 			}
@@ -172,18 +201,11 @@ public class DatabaseHandler {
 	 * @return Object[][] containing book data for table display
 	 */
 	static Object[][] findBookAsTableData(String bookName) {
-		String query;
-		if (bookName == null || bookName.trim().isEmpty()) {
-			query = "SELECT book_id, book_name, borrowed FROM book_record";
-		} else {
-			query = "SELECT book_id, book_name, borrowed FROM book_record WHERE book_name LIKE ?";
-		}
+		String query = buildBookQuery(bookName);
 		
 		List<Object[]> dataList = new ArrayList<>();
 		
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
-			
+		try (PreparedStatement statement = conn.prepareStatement(query)) {
 			if (bookName != null && !bookName.trim().isEmpty()) {
 				statement.setString(1, "%" + bookName.trim() + "%");
 			}
