@@ -105,5 +105,6 @@ public class Main {
         * Launch Java Swing Login Form as the entry point
         * */
         LoginForm.showLoginForm();
+        DatabaseHandler.main(args);
     }
 }

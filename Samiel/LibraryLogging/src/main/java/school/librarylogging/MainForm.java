@@ -112,6 +112,8 @@ public class MainForm extends JFrame {
             mainContentPanel.add(Box.createVerticalStrut(10));
             
             addButton("Create Librarian Account", e -> showCreateLibrarianDialog());
+            mainContentPanel.add(Box.createVerticalStrut(10));
+            addButton("Generate Book QR", e -> showBookQrDialog());
         }
         
         mainContentPanel.add(Box.createVerticalGlue());
@@ -346,7 +348,17 @@ public class MainForm extends JFrame {
                     "Success", JOptionPane.INFORMATION_MESSAGE);
         }
     }
-    
+
+    private void showBookQrDialog() {
+        if (!"ADMINISTRATOR".equals(currentUser.role)) {
+            JOptionPane.showMessageDialog(this, "Only administrators can generate book QR codes.",
+                    "Access Denied", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        BookQrDialog qrDialog = new BookQrDialog(this, Main.qrCode);
+        qrDialog.setVisible(true);
+    }
+
     private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this, 
                 "Are you sure you want to logout?", 
